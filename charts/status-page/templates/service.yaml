@@ -1,0 +1,35 @@
+# API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "status-page.fullname" . }}-api
+  labels:
+    {{- include "status-page.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "status-page.apiSelectorLabels" . | nindent 4 }}
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "status-page.fullname" . }}-frontend
+  labels:
+    {{- include "status-page.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "status-page.frontendSelectorLabels" . | nindent 4 }}

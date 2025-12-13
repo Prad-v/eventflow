@@ -1,0 +1,149 @@
+# Default values for status-page
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imagePullSecrets: []
+
+# API Service configuration
+api:
+  replicaCount: 2
+  
+  image:
+    repository: status-page-api
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  
+  env:
+    DEBUG: "false"
+  
+  # Database connection - use secrets for credentials
+  database:
+    host: postgres
+    port: "5432"
+    name: statuspage
+  
+  # OIDC configuration
+  oidc:
+    issuer: ""
+    audience: ""
+    jwksUrl: ""
+  
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# Frontend configuration
+frontend:
+  replicaCount: 2
+  
+  image:
+    repository: status-page-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 80
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  env:
+    VITE_API_URL: "/api"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: status.internal.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /v1
+          pathType: Prefix
+          service: api
+        - path: /healthz
+          pathType: Exact
+          service: api
+  tls:
+    - secretName: status-page-tls
+      hosts:
+        - status.internal.example.com
+
+# PostgreSQL configuration (for development)
+# In production, use managed database
+postgresql:
+  enabled: false
+  auth:
+    database: statuspage
+    username: statuspage
+  primary:
+    persistence:
+      size: 10Gi
+
+# Network Policy
+networkPolicy:
+  enabled: false
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Secret references
+secrets:
+  # Name of existing secret for database credentials
+  database: status-page-db-credentials
+  # Name of existing secret for OIDC client secret
+  oidc: status-page-oidc-credentials

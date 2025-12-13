@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "status-page.fullname" . }}-api
+  labels:
+    {{- include "status-page.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+  DEBUG: {{ .Values.api.env.DEBUG | quote }}
+  DATABASE_HOST: {{ .Values.api.database.host | quote }}
+  DATABASE_PORT: {{ .Values.api.database.port | quote }}
+  DATABASE_NAME: {{ .Values.api.database.name | quote }}
+  OIDC_ISSUER: {{ .Values.api.oidc.issuer | quote }}
+  OIDC_AUDIENCE: {{ .Values.api.oidc.audience | quote }}
+  OIDC_JWKS_URL: {{ .Values.api.oidc.jwksUrl | quote }}
+  CORS_ORIGINS: '["https://{{ (first .Values.ingress.hosts).host }}"]'
