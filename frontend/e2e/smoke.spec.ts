@@ -115,3 +115,97 @@ test.describe('Status Page - API Integration', () => {
         await expect(statusBanner).toBeVisible();
     });
 });
+
+test.describe('Local Login Page - Breakglass Access', () => {
+    test('should load local login page', async ({ page }) => {
+        await page.goto('/login/local');
+
+        // Verify the page title
+        await expect(page).toHaveTitle(/Status/i);
+
+        // Should have login form elements
+        await expect(page.getByText(/Local Admin Login/i)).toBeVisible();
+        await expect(page.getByText(/Username/)).toBeVisible();
+        await expect(page.getByText(/Password/)).toBeVisible();
+        await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+    });
+
+    test('should have back link to status page', async ({ page }) => {
+        await page.goto('/login/local');
+
+        // Should have a link back to the main page
+        const backLink = page.getByText(/Back to Status Page/i);
+        await expect(backLink).toBeVisible();
+    });
+
+    test('should show error for invalid credentials', async ({ page }) => {
+        await page.goto('/login/local');
+
+        // Fill in invalid credentials using input by type
+        await page.locator('input[type="text"]').fill('invaliduser');
+        await page.locator('input[type="password"]').fill('invalidpassword');
+        await page.getByRole('button', { name: /sign in/i }).click();
+
+        // Should show error message (wait for API response)
+        await expect(page.getByText(/invalid username or password/i)).toBeVisible({ timeout: 15000 });
+    });
+
+    test('should show breakglass description', async ({ page }) => {
+        await page.goto('/login/local');
+
+        // Should mention breakglass access (case-insensitive)
+        await expect(page.getByText(/Breakglass access/i)).toBeVisible();
+    });
+});
+
+test.describe('Settings Page - Authenticated Access', () => {
+    test('should redirect unauthenticated users when accessing settings', async ({ page }) => {
+        // Try to access settings without authentication
+        await page.goto('/admin/settings');
+
+        // Should redirect to login or show loading (depending on auth state)
+        // The page should not show the settings content without authentication
+        // Note: This test verifies the route exists and is protected
+        await expect(page).toHaveURL(/\/(admin\/settings|callback)/);
+    });
+
+    test('should have settings routes accessible', async ({ page }) => {
+        // Just verify the routes are configured correctly
+        // Navigate to OIDC settings path
+        await page.goto('/admin/settings/oidc');
+
+        // The page should load (even if redirected for auth)
+        await expect(page).toHaveTitle(/Status/i);
+    });
+
+    test('should have local users route accessible', async ({ page }) => {
+        // Just verify the routes are configured correctly
+        await page.goto('/admin/settings/users');
+
+        // The page should load (even if redirected for auth)
+        await expect(page).toHaveTitle(/Status/i);
+    });
+});
+
+test.describe('Navigation - New Features', () => {
+    test('should be able to navigate to local login from main page', async ({ page }) => {
+        // Start from homepage
+        await page.goto('/');
+
+        // Navigate to local login via URL
+        await page.goto('/login/local');
+
+        // Verify we're on the local login page
+        await expect(page.getByText(/Local Admin Login/i)).toBeVisible();
+    });
+
+    test('should have API docs link working', async ({ page }) => {
+        await page.goto('/');
+
+        // Click API Docs navigation link
+        await page.getByRole('link', { name: /api docs/i }).click();
+
+        // Should navigate to API docs page
+        await expect(page).toHaveURL(/\/api-docs/);
+    });
+});

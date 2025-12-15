@@ -11,6 +11,10 @@ from fastapi.openapi.utils import get_openapi
 from app.core.config import get_settings
 from app.core.database import Base
 from app.api import components, incidents, maintenance, status
+from app.api.auth_local import router as auth_local_router, admin_router as admin_users_router
+from app.api.settings import router as settings_router
+from app.api.status_public import router as status_public_router
+from app.api.datasources import router as datasources_router
 
 
 settings = get_settings()
@@ -53,6 +57,10 @@ Uses JWT tokens with OIDC. Include `Authorization: Bearer <token>` header.
             {"name": "Components", "description": "Component and group management"},
             {"name": "Incidents", "description": "Incident lifecycle management"},
             {"name": "Maintenance", "description": "Maintenance window scheduling"},
+            {"name": "Local Auth", "description": "Local admin authentication (breakglass)"},
+            {"name": "Admin Users", "description": "Local admin user management"},
+            {"name": "Settings", "description": "Application configuration"},
+            {"name": "System", "description": "System status and configuration"},
             {"name": "Health", "description": "Health check endpoints"},
         ]
     )
@@ -131,6 +139,11 @@ app.include_router(components.router, prefix="/v1")
 app.include_router(incidents.router, prefix="/v1")
 app.include_router(maintenance.router, prefix="/v1")
 app.include_router(status.router, prefix="/v1")
+app.include_router(auth_local_router, prefix="/v1")
+app.include_router(admin_users_router, prefix="/v1")
+app.include_router(settings_router, prefix="/v1")
+app.include_router(status_public_router, prefix="/v1")
+app.include_router(datasources_router, prefix="/v1")
 
 
 # Root endpoint

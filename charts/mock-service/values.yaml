@@ -1,0 +1,24 @@
+# Mock PagerDuty Service Configuration
+
+replicaCount: 1
+
+image:
+  repository: mock-pagerduty
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# API key for authentication (used by the status-page to connect)
+apiKey: "mock-pd-api-key-12345"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi

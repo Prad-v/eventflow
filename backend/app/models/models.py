@@ -8,7 +8,8 @@ from sqlalchemy import (
     Column, String, Text, Integer, Boolean, DateTime, ForeignKey,
     Enum as SQLEnum, Index
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.core.database import Base
@@ -114,6 +115,7 @@ class Incident(Base):
     status: Mapped[IncidentStatus] = mapped_column(SQLEnum(IncidentStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, default=IncidentStatus.INVESTIGATING)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[Optional[str]] = mapped_column(String(50), default="manual")  # manual, pagerduty, opsgenie
     created_by: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -121,6 +123,7 @@ class Incident(Base):
     # Relationships
     updates: Mapped[list["IncidentUpdate"]] = relationship("IncidentUpdate", back_populates="incident", cascade="all, delete-orphan", order_by="IncidentUpdate.created_at.desc()")
     incident_components: Mapped[list["IncidentComponent"]] = relationship("IncidentComponent", back_populates="incident", cascade="all, delete-orphan")
+    external_incidents: Mapped[list["ExternalIncident"]] = relationship("ExternalIncident", back_populates="incident", cascade="all, delete-orphan")
     
     __table_args__ = (
         Index("idx_incident_status_started", "status", "started_at"),
@@ -216,4 +219,118 @@ class AuditLog(Base):
     __table_args__ = (
         Index("idx_audit_log_entity", "entity_type", "entity_id"),
         Index("idx_audit_log_timestamp", "timestamp"),
+    )
+
+
+# ============================================================================
+# Local Admin Users (Breakglass)
+# ============================================================================
+class LocalUser(Base):
+    """Local admin user for breakglass access when OIDC is unavailable."""
+    __tablename__ = "local_user"
+    
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+
+# ============================================================================
+# App Settings
+# ============================================================================
+class AppSettings(Base):
+    """Key-value store for application configuration."""
+    __tablename__ = "app_settings"
+    
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+# ============================================================================
+# OIDC Configuration
+# ============================================================================
+class OIDCConfig(Base):
+    """OIDC provider configuration for authentication."""
+    __tablename__ = "oidc_config"
+    
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    provider_name: Mapped[str] = mapped_column(String(100), default="logto")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    issuer_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    client_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    client_secret_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    audience: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    scopes: Mapped[Optional[list]] = mapped_column(postgresql.ARRAY(String), default=['openid', 'profile', 'email'])
+    redirect_uri: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    admin_endpoint: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    
+    # M2M credentials for Logto Management API
+    m2m_app_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    m2m_app_secret_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
+    # Sync state
+    is_provisioned: Mapped[bool] = mapped_column(Boolean, default=False)
+    provisioned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# ============================================================================
+# Datasource Integrations (PagerDuty, etc.)
+# ============================================================================
+class Datasource(Base):
+    """External datasource integration (PagerDuty, OpsGenie, etc.)."""
+    __tablename__ = "datasource"
+    
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider_type: Mapped[str] = mapped_column(String(50), nullable=False)  # pagerduty, opsgenie
+    config_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Encrypted JSON
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    sync_status: Mapped[Optional[str]] = mapped_column(String(50), default="idle")  # idle, syncing, error, success
+    sync_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sync_interval_seconds: Mapped[int] = mapped_column(Integer, default=60)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    external_incidents: Mapped[list["ExternalIncident"]] = relationship("ExternalIncident", back_populates="datasource", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index("idx_datasource_provider", "provider_type"),
+        Index("idx_datasource_enabled", "enabled"),
+    )
+
+
+class ExternalIncident(Base):
+    """Links external incidents to internal incidents."""
+    __tablename__ = "external_incident"
+    
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    datasource_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("datasource.id", ondelete="CASCADE"), nullable=False)
+    external_id: Mapped[str] = mapped_column(String(255), nullable=False)  # PagerDuty incident ID
+    incident_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("incident.id", ondelete="CASCADE"), nullable=True)
+    external_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)  # Full external incident data
+    synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    
+    # Relationships
+    datasource: Mapped["Datasource"] = relationship("Datasource", back_populates="external_incidents")
+    incident: Mapped[Optional["Incident"]] = relationship("Incident", back_populates="external_incidents")
+    
+    __table_args__ = (
+        Index("idx_external_incident_datasource", "datasource_id"),
+        Index("idx_external_incident_external_id", "datasource_id", "external_id", unique=True),
     )

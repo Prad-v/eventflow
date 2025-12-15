@@ -87,6 +87,51 @@ push-frontend: ## Push Frontend Docker image
 	@echo "$(GREEN)✓ Frontend image pushed$(RESET)"
 
 # ============================================================================
+# Mock PagerDuty Service
+# ============================================================================
+
+build-mock-pd: ## Build Mock PagerDuty Docker image
+	@echo "$(CYAN)Building Mock PagerDuty image...$(RESET)"
+	docker build -t mock-pagerduty:$(IMAGE_TAG) ./mock-pagerduty
+	@echo "$(GREEN)✓ Mock PagerDuty image built$(RESET)"
+
+deploy-mock-pd: build-mock-pd ## Deploy Mock PagerDuty to Kind cluster
+	@echo "$(CYAN)Loading Mock PagerDuty image into Kind...$(RESET)"
+	kind load docker-image mock-pagerduty:$(IMAGE_TAG) --name $(K8S_NAMESPACE)
+	@echo "$(CYAN)Deploying Mock PagerDuty...$(RESET)"
+	helm upgrade --install mock-pagerduty ./charts/mock-service \
+		--namespace $(K8S_NAMESPACE) \
+		--set image.repository=mock-pagerduty \
+		--set image.tag=$(IMAGE_TAG) \
+		--set image.pullPolicy=Never \
+		--wait
+	@echo "$(GREEN)✓ Mock PagerDuty deployed$(RESET)"
+	@echo ""
+	@echo "$(YELLOW)To configure in Status Page:$(RESET)"
+	@echo "  1. Go to Settings → Integrations → Datasources"
+	@echo "  2. Add new datasource with:"
+	@echo "     - Provider: PagerDuty"
+	@echo "     - API Key: mock-pd-api-key-12345"
+	@echo "  3. Update your datasource to use the mock endpoint:"
+	@echo "     kubectl exec -it deploy/status-page-api -n $(K8S_NAMESPACE) -- sh"
+	@echo ""
+
+undeploy-mock-pd: ## Remove Mock PagerDuty deployment
+	helm uninstall mock-pagerduty -n $(K8S_NAMESPACE) || true
+	@echo "$(YELLOW)✓ Mock PagerDuty removed$(RESET)"
+
+mock-pd-logs: ## Follow Mock PagerDuty logs
+	kubectl logs -f deployment/mock-pagerduty -n $(K8S_NAMESPACE)
+
+mock-pd-test: ## Test Mock PagerDuty API connection
+	@echo "$(CYAN)Testing Mock PagerDuty API...$(RESET)"
+	kubectl exec -it deploy/status-page-api -n $(K8S_NAMESPACE) -- \
+		curl -s -H "Authorization: Token token=mock-pd-api-key-12345" \
+		http://mock-pagerduty/users/me | head -50
+	@echo "\n$(GREEN)✓ Mock PagerDuty is accessible$(RESET)"
+
+
+# ============================================================================
 # Kubernetes Deployment
 # ============================================================================
 
