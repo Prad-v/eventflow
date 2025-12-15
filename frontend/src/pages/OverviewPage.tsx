@@ -54,12 +54,18 @@ export default function OverviewPage() {
                 </div>
                 <div className="status-text">
                     <h2>{STATUS_LABELS[overview.global_status]}</h2>
-                    <p>Last updated: {format(new Date(overview.last_updated), 'PPpp')}</p>
+                    <p>Last updated: {(() => {
+                        try {
+                            return format(new Date(overview.last_updated), 'PPpp');
+                        } catch (e) {
+                            return 'Unknown';
+                        }
+                    })()}</p>
                 </div>
             </div>
 
             {/* Active Incidents */}
-            {overview.active_incidents.length > 0 && (
+            {overview.active_incidents?.length > 0 && (
                 <section className="incidents-section">
                     <div className="card">
                         <div className="card-header">
@@ -122,7 +128,7 @@ export default function OverviewPage() {
             </section>
 
             {/* Upcoming Maintenance */}
-            {overview.upcoming_maintenance.length > 0 && (
+            {overview.upcoming_maintenance?.length > 0 && (
                 <section style={{ marginTop: 'var(--space-8)' }}>
                     <div className="card">
                         <div className="card-header">

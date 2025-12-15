@@ -9,8 +9,24 @@ data:
   DEBUG: {{ .Values.api.env.DEBUG | quote }}
   DATABASE_HOST: {{ .Values.api.database.host | quote }}
   DATABASE_PORT: {{ .Values.api.database.port | quote }}
-  DATABASE_NAME: {{ .Values.api.database.name | quote }}
-  OIDC_ISSUER: {{ .Values.api.oidc.issuer | quote }}
-  OIDC_AUDIENCE: {{ .Values.api.oidc.audience | quote }}
-  OIDC_JWKS_URL: {{ .Values.api.oidc.jwksUrl | quote }}
+  DATABASE_NAME: {{ .Values.api.database.name | quote }} # OIDC / Logto
+  LOGTO_ENDPOINT: {{ .Values.api.logto.endpoint | quote }}
+  LOGTO_APP_ID: {{ .Values.api.logto.appId | quote }}
+  LOGTO_AUDIENCE: {{ .Values.api.logto.audience | quote }}
   CORS_ORIGINS: '["https://{{ (first .Values.ingress.hosts).host }}"]'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "status-page.fullname" . }}-frontend-config
+  labels:
+    {{- include "status-page.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+data:
+  config.js: |
+    window.env = {
+      LOGTO_ENDPOINT: "{{ .Values.frontend.logto.endpoint | default "https://auth.internal.example.com" }}",
+      LOGTO_APP_ID: "{{ .Values.frontend.logto.appId | default "placeholder" }}",
+      LOGTO_AUDIENCE: "{{ .Values.frontend.logto.audience | default "https://api.internal.example.com" }}",
+      API_URL: "{{ .Values.frontend.env.VITE_API_URL | default "/v1" }}"
+    };

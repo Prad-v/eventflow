@@ -5,10 +5,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useComponents, useComponentGroups } from '../hooks/useApi';
 
+import { CodeSnippetModal } from '../components/CodeSnippetModal';
+
 export default function ComponentsPage() {
     const [groupFilter, setGroupFilter] = useState<string>('');
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
 
     const { data: groups } = useComponentGroups();
     const { data, isLoading, error } = useComponents({
@@ -21,10 +24,24 @@ export default function ComponentsPage() {
         <div>
             <div className="card-header" style={{ marginBottom: 'var(--space-6)' }}>
                 <h1>Components</h1>
-                <Link to="/admin/components/new" className="btn btn-primary">
-                    Add Component
-                </Link>
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => setIsCodeModalOpen(true)}
+                    >
+                        API Code
+                    </button>
+                    <Link to="/admin/components/new" className="btn btn-primary">
+                        Add Component
+                    </Link>
+                </div>
             </div>
+
+            <CodeSnippetModal
+                isOpen={isCodeModalOpen}
+                onClose={() => setIsCodeModalOpen(false)}
+                entityType="component"
+            />
 
             {/* Filters */}
             <div className="card" style={{ marginBottom: 'var(--space-6)' }}>

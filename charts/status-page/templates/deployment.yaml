@@ -56,6 +56,12 @@ spec:
                   key: password
             - name: DATABASE_URL
               value: "postgresql+psycopg2://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)?sslmode=disable"
+            - name: LOGTO_ENDPOINT
+              value: {{ .Values.api.logto.endpoint | quote }}
+            - name: LOGTO_APP_ID
+              value: {{ .Values.api.logto.appId | quote }}
+            - name: LOGTO_AUDIENCE
+              value: {{ .Values.api.logto.audience | quote }}
           {{- with .Values.api.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -117,3 +123,11 @@ spec:
             periodSeconds: 5
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "status-page.fullname" . }}-frontend-config

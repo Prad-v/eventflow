@@ -1,0 +1,35 @@
+image:
+  repository: ghcr.io/logto-io/logto
+  tag: v1.15.0
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  ports:
+    admin: 3002
+    api: 3001
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+  hosts:
+    - host: auth.internal.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+    - host: auth-admin.internal.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+db:
+  host: "postgres"
+  port: 5432
+  username: "logto"
+  database: "logto"
+  password: "logto_password"
+
+# Extra env vars for Logto
+extraEnv: []

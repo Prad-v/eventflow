@@ -23,10 +23,13 @@ const SEVERITY_OPTIONS: { value: Severity | ''; label: string }[] = [
     { value: 'info', label: 'Info' },
 ];
 
+import { CodeSnippetModal } from '../components/CodeSnippetModal';
+
 export default function IncidentsPage() {
     const [statusFilter, setStatusFilter] = useState<IncidentStatus | ''>('');
     const [severityFilter, setSeverityFilter] = useState<Severity | ''>('');
     const [page, setPage] = useState(1);
+    const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
 
     const { data, isLoading, error } = useIncidents({
         status: statusFilter || undefined,
@@ -38,10 +41,24 @@ export default function IncidentsPage() {
         <div>
             <div className="card-header" style={{ marginBottom: 'var(--space-6)' }}>
                 <h1>Incidents</h1>
-                <Link to="/admin/incidents/new" className="btn btn-primary">
-                    Report Incident
-                </Link>
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => setIsCodeModalOpen(true)}
+                    >
+                        API Code
+                    </button>
+                    <Link to="/admin/incidents/new" className="btn btn-primary">
+                        Report Incident
+                    </Link>
+                </div>
             </div>
+
+            <CodeSnippetModal
+                isOpen={isCodeModalOpen}
+                onClose={() => setIsCodeModalOpen(false)}
+                entityType="incident"
+            />
 
             {/* Filters */}
             <div className="card" style={{ marginBottom: 'var(--space-6)' }}>
@@ -116,9 +133,17 @@ export default function IncidentsPage() {
                                             </div>
                                         </div>
                                         <div className="incident-meta">
-                                            <span>Started: {format(new Date(incident.started_at), 'PPp')}</span>
+                                            <span>Started: {(() => {
+                                                try {
+                                                    return format(new Date(incident.started_at), 'PPp');
+                                                } catch (e) { return 'Unknown'; }
+                                            })()}</span>
                                             {incident.resolved_at && (
-                                                <span>Resolved: {format(new Date(incident.resolved_at), 'PPp')}</span>
+                                                <span>Resolved: {(() => {
+                                                    try {
+                                                        return format(new Date(incident.resolved_at), 'PPp');
+                                                    } catch (e) { return 'Unknown'; }
+                                                })()}</span>
                                             )}
                                         </div>
                                     </div>

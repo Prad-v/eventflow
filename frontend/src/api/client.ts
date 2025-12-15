@@ -3,20 +3,36 @@
  */
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-export const api = axios.create({
-    baseURL: `${API_BASE_URL}/v1`,
+// We'll trust that the Logto provider handles the token acquisition and the app logic
+// passes it to the client, OR we can implement a method to set the token.
+// A simpler approach for this architecture is to export a function to set the token,
+// or use a class. Given the functional `useApi` hooks, let's add a token setter.
+
+
+export const apiClient = axios.create({
+    baseURL: window.env?.API_URL || import.meta.env.VITE_API_URL || '/v1',
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+let getAccessToken: (() => Promise<string>) | null = null;
+
+export const setAccessTokenGetter = (getter: () => Promise<string>) => {
+    getAccessToken = getter;
+};
+
+apiClient.interceptors.request.use(async (config) => {
+    if (getAccessToken) {
+        try {
+            const token = await getAccessToken();
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+        } catch (e) {
+            console.warn('Failed to get access token', e);
+        }
     }
     return config;
 });
@@ -140,47 +156,47 @@ export interface PaginatedResponse<T> {
 // API Functions
 export const statusApi = {
     getOverview: () =>
-        api.get<StatusOverview>('/status/overview').then(r => r.data),
+        apiClient.get<StatusOverview>('/status/overview').then(r => r.data),
 };
 
 export const componentsApi = {
     list: (params?: { group_id?: string; q?: string; page?: number }) =>
-        api.get<PaginatedResponse<Component>>('/components', { params }).then(r => r.data),
+        apiClient.get<PaginatedResponse<Component>>('/components', { params }).then(r => r.data),
 
     get: (id: string) =>
-        api.get<Component>(`/components/${id}`).then(r => r.data),
+        apiClient.get<Component>(`/components/${id}`).then(r => r.data),
 
     listGroups: () =>
-        api.get<ComponentGroup[]>('/components/groups').then(r => r.data),
+        apiClient.get<ComponentGroup[]>('/components/groups').then(r => r.data),
 
     create: (data: { name: string; description?: string; group_id?: string; tier?: number }) =>
-        api.post<Component>('/components', data).then(r => r.data),
+        apiClient.post<Component>('/components', data).then(r => r.data),
 };
 
 export const incidentsApi = {
     list: (params?: { status?: IncidentStatus; severity?: Severity; page?: number }) =>
-        api.get<PaginatedResponse<Incident>>('/incidents', { params }).then(r => r.data),
+        apiClient.get<PaginatedResponse<Incident>>('/incidents', { params }).then(r => r.data),
 
     get: (id: string) =>
-        api.get<IncidentDetail>(`/incidents/${id}`).then(r => r.data),
+        apiClient.get<IncidentDetail>(`/incidents/${id}`).then(r => r.data),
 
     create: (data: { title: string; severity: Severity; message: string; components?: { component_id: string; impact: Impact }[] }) =>
-        api.post<IncidentDetail>('/incidents', data).then(r => r.data),
+        apiClient.post<IncidentDetail>('/incidents', data).then(r => r.data),
 
     addUpdate: (id: string, data: { message: string; status?: IncidentStatus }) =>
-        api.post<IncidentUpdate>(`/incidents/${id}/updates`, data).then(r => r.data),
+        apiClient.post<IncidentUpdate>(`/incidents/${id}/updates`, data).then(r => r.data),
 
     resolve: (id: string, message: string) =>
-        api.post<IncidentDetail>(`/incidents/${id}/resolve`, { message }).then(r => r.data),
+        apiClient.post<IncidentDetail>(`/incidents/${id}/resolve`, { message }).then(r => r.data),
 };
 
 export const maintenanceApi = {
     list: (params?: { status?: MaintenanceStatus; page?: number }) =>
-        api.get<PaginatedResponse<MaintenanceWindow>>('/maintenance', { params }).then(r => r.data),
+        apiClient.get<PaginatedResponse<MaintenanceWindow>>('/maintenance', { params }).then(r => r.data),
 
     get: (id: string) =>
-        api.get<MaintenanceWindow>(`/maintenance/${id}`).then(r => r.data),
+        apiClient.get<MaintenanceWindow>(`/maintenance/${id}`).then(r => r.data),
 
     create: (data: { title: string; description?: string; start_at: string; end_at: string; components?: { component_id: string; expected_impact: Impact }[] }) =>
-        api.post<MaintenanceWindow>('/maintenance', data).then(r => r.data),
+        apiClient.post<MaintenanceWindow>('/maintenance', data).then(r => r.data),
 };

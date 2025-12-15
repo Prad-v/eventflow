@@ -45,7 +45,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: postgres:15
+        image: postgres:14
         env:
         - name: POSTGRES_DB
           value: statuspage
@@ -55,3 +55,26 @@ spec:
           value: statuspage
         ports:
         - containerPort: 5432
+        volumeMounts:
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d/init_logto.sql
+          subPath: init_logto.sql
+      volumes:
+      - name: init-script
+        configMap:
+          name: postgres-init-script
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-script
+  namespace: eventflow
+data:
+  init_logto.sql: |
+    CREATE USER logto WITH PASSWORD 'logto_password';
+    ALTER USER logto WITH SUPERUSER;
+    CREATE DATABASE logto OWNER logto;
+    \c logto
+    GRANT ALL ON SCHEMA public TO logto;
+    GRANT ALL PRIVILEGES ON DATABASE logto TO logto;

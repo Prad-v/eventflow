@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "logto.fullname" . }}
+  labels:
+    {{- include "logto.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "logto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "logto.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: api
+              containerPort: 3001
+              protocol: TCP
+            - name: admin
+              containerPort: 3002
+              protocol: TCP
+          env:
+            - name: TRUST_PROXY_HEADER
+              value: "1"
+            - name: DB_URL
+              value: "postgres://{{ .Values.db.username }}:{{ .Values.db.password }}@{{ .Values.db.host }}:{{ .Values.db.port }}/{{ .Values.db.database }}"
+            # Logto requires explicit endpoint configuration
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          # Logto needs to run migration on start? Official docs say specific command.
+          # The default entrypoint is 'npm start' which handles running logto.
+          # Auto-migration usually requires 'npx @logto/cli db alt' or similar.
+          # For 'svhd/logto' or official, it often attempts migration on start if configured.
+          # Docker compose example: command: ["sh", "-c", "npm run cli db seed -- --swe && npm start"]
+          # We might need a post-install hook or init container for seeding. 
+          # For now, let's assume default startup or usage of args locally.
+          command: ["/bin/sh", "-c"]
+          # Seed ensures DB schema & data. Safe to run on restart (idempotent checks).
+          # We chain start to ensure it runs after seed.
+          args: ["npm run cli db seed -- --swe || true && npm start"]
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: api
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: api
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3

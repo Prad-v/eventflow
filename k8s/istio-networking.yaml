@@ -1,0 +1,107 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: eventflow-gateway
+  namespace: eventflow
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: eventflow-wildcard-cert
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: status-page
+  namespace: eventflow
+spec:
+  hosts:
+  - "status.internal.example.com"
+  gateways:
+  - eventflow-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /v1
+    - uri:
+        prefix: /healthz
+    route:
+    - destination:
+        host: status-page-api.eventflow.svc.cluster.local
+        port:
+          number: 8000
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: status-page-frontend.eventflow.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: status-page-api
+  namespace: eventflow
+spec:
+  hosts:
+  - "api.internal.example.com"
+  gateways:
+  - eventflow-gateway
+  http:
+  - route:
+    - destination:
+        host: status-page-api.eventflow.svc.cluster.local
+        port:
+          number: 8000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: logto
+  namespace: eventflow
+spec:
+  hosts:
+  - "auth.internal.example.com"
+  gateways:
+  - eventflow-gateway
+  http:
+  - route:
+    - destination:
+        host: status-page-logto.eventflow.svc.cluster.local
+        port:
+          number: 3001
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: logto-admin
+  namespace: eventflow
+spec:
+  hosts:
+  - "auth-admin.internal.example.com"
+  gateways:
+  - eventflow-gateway
+  http:
+  - route:
+    - destination:
+        host: status-page-logto.eventflow.svc.cluster.local
+        port:
+          number: 3002

@@ -35,11 +35,11 @@ api:
     port: "5432"
     name: statuspage
   
-  # OIDC configuration
-  oidc:
-    issuer: ""
-    audience: ""
-    jwksUrl: ""
+  # Logto configuration
+  logto:
+    endpoint: "https://your-tenant.logto.app/"
+    appId: "your_app_id"
+    audience: "your_api_resource"
   
   livenessProbe:
     httpGet:
@@ -83,8 +83,14 @@ frontend:
       memory: 64Mi
   
   env:
-    VITE_API_URL: "/api"
-  
+  env:
+    VITE_API_URL: "/v1"
+
+  logto:
+    endpoint: "https://auth.internal.example.com"
+    appId: "placeholder"
+    audience: "http://api.internal.example.com"
+
   autoscaling:
     enabled: true
     minReplicas: 2
@@ -94,10 +100,10 @@ frontend:
 # Ingress configuration
 ingress:
   enabled: true
-  className: nginx
+  className: istio
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true" # Not needed for Istio or different annotation
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
   hosts:
     - host: status.internal.example.com
       paths:
@@ -147,3 +153,55 @@ secrets:
   database: status-page-db-credentials
   # Name of existing secret for OIDC client secret
   oidc: status-page-oidc-credentials
+
+# --- Logto Subchart Configuration ---
+logto:
+  enabled: true
+  
+  image:
+    tag: "latest" # User requested latest 
+  
+  service:
+    type: ClusterIP
+    ports:
+      admin: 3002
+      api: 3001
+
+  db:
+    host: "postgres"
+    port: 5432
+    username: "logto"
+    database: "logto"
+    # Password should be in a secret, but for dev we might set it here or map it
+    password: "logto_password" 
+
+  ingress:
+    enabled: true
+    className: "istio"
+    annotations: {}
+      # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: auth.internal.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+      - host: auth-admin.internal.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: logto-tls
+        hosts:
+          - auth.internal.example.com
+          - auth-admin.internal.example.com
+
+  # Environmental variables to pass to Logto
+  extraEnv:
+    - name: TRUST_PROXY_HEADER
+      value: "1"
+    - name: ENDPOINT
+      value: "https://auth.internal.example.com"
+    - name: ADMIN_ENDPOINT
+      value: "https://auth-admin.internal.example.com"
+    - name: NODE_TLS_REJECT_UNAUTHORIZED
+      value: "0"

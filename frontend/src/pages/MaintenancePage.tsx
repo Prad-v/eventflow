@@ -15,9 +15,12 @@ const STATUS_OPTIONS: { value: MaintenanceStatus | ''; label: string }[] = [
     { value: 'canceled', label: 'Canceled' },
 ];
 
+import { CodeSnippetModal } from '../components/CodeSnippetModal';
+
 export default function MaintenancePage() {
     const [statusFilter, setStatusFilter] = useState<MaintenanceStatus | ''>('');
     const [page, setPage] = useState(1);
+    const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
 
     const { data, isLoading, error } = useMaintenance({
         status: statusFilter || undefined,
@@ -28,10 +31,24 @@ export default function MaintenancePage() {
         <div>
             <div className="card-header" style={{ marginBottom: 'var(--space-6)' }}>
                 <h1>Scheduled Maintenance</h1>
-                <Link to="/admin/maintenance/new" className="btn btn-primary">
-                    Schedule Maintenance
-                </Link>
+                <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => setIsCodeModalOpen(true)}
+                    >
+                        API Code
+                    </button>
+                    <Link to="/admin/maintenance/new" className="btn btn-primary">
+                        Schedule Maintenance
+                    </Link>
+                </div>
             </div>
+
+            <CodeSnippetModal
+                isOpen={isCodeModalOpen}
+                onClose={() => setIsCodeModalOpen(false)}
+                entityType="maintenance"
+            />
 
             {/* Filters */}
             <div className="card" style={{ marginBottom: 'var(--space-6)' }}>

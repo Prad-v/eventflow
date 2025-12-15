@@ -28,7 +28,13 @@ class Settings(BaseSettings):
     redis_url: str = ""
     
     # Slack webhook (optional)
+    # Slack webhook (optional)
     slack_webhook_url: str = ""
+
+    # OIDC / Logto
+    LOGTO_ENDPOINT: str = "https://your-tenant.logto.app/"
+    LOGTO_APP_ID: str = "your_app_id"
+    LOGTO_AUDIENCE: str = "your_api_resource"
     
     class Config:
         env_file = ".env"
@@ -39,3 +45,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached settings."""
     return Settings()
+
+settings = get_settings()
